@@ -2,7 +2,7 @@
 // =======================================================================================
 //        SHADOW_MD:  Small Handheld Arduino Droid Operating Wand + MarcDuino
 // =======================================================================================
-//                              v08.24.2023b - SigmaOmicron                          
+//                              v09.03.2023 - SigmaOmicron                          
 //                           Revised By: v08.23.2015 - vint43
 //                Inspired by the PADAWAN / KnightShade SHADOW effort
 // =======================================================================================
@@ -50,12 +50,9 @@
 //                        General User Settings
 // ---------------------------------------------------------------------------------------
 
-//String PS3ControllerFootMac = "00:1B:FB:37:4B:C4";  //Set this to your FOOT PS3 controller MAC address
-String PS3ControllerFootMac = "34:C7:31:4A:11:AE";  //Set this to your FOOT PS3 controller MAC address
-String PS3ControllerDomeMAC = "##:##:##:##:##:##";  //Set to a secondary DOME PS3 controller MAC address (Optional)
+String PS3ControllerFootMac = "##:##:##:##:##:##";  //Set this to your FOOT PS3 controller MAC address
 
 String PS3ControllerBackupFootMac = "##:##:##:##:##:##";  //Set to the MAC Address of your BACKUP FOOT controller (Optional)
-String PS3ControllerBackupDomeMAC = "##:##:##:##:##:##";  //Set to the MAC Address of your BACKUP DOME controller (Optional)
 
 byte drivespeed1 = 70;   //For Speed Setting (Normal): set this to whatever speeds works for you. 0-stop, 127-full speed.
 byte drivespeed2 = 110;  //For Speed Setting (Over Throttle): set this for when needing extra power. 0-stop, 127-full speed.
@@ -89,7 +86,7 @@ int time360DomeTurn = 2500;  // milliseconds for dome to complete 360 turn at do
 //     1 = Close All Panels
 //     2 = Scream - all panels open
 //     3 = Wave, One Panel at a time
-//     4 = Fast (smirk) back and forth wave
+//     4 = Fast (smirk) back-and-forth wave
 //     5 = Wave 2, Open progressively all panels, then close one by one
 //     6 = Beep cantina - w/ marching ants panel action
 //     7 = Faint / Short Circuit
@@ -171,7 +168,7 @@ int time360DomeTurn = 2500;  // milliseconds for dome to complete 360 turn at do
 //     1 = Display normal random sequence
 //     2 = Short circuit (10 second display sequence)
 //     3 = Scream (flashing light display sequence)
-//     4 = Leia (34 second light sequence)
+//     4 = Leia (34-second light sequence)
 //     5 = Display “Star Wars”
 //     6 = March light sequence
 //     7 = Spectrum, bar graph display sequence
@@ -181,10 +178,10 @@ int time360DomeTurn = 2500;  // milliseconds for dome to complete 360 turn at do
 //     1 = Panels stay closed (normal position)
 //     2 = Scream sequence, all panels open
 //     3 = Wave panel sequence
-//     4 = Fast (smirk) back and forth panel sequence
-//     5 = Wave 2 panel sequence, open progressively all panels, then close one by one)
+//     4 = Fast (smirk) back-and-forth panel sequence
+//     5 = Wave 2-panel sequence, open progressively all panels, then close one by one)
 //     6 = Marching ants panel sequence
-//     7 = Faint / short circuit panel sequence
+//     7 = Faint/short circuit panel sequence
 //     8 = Rhythmic cantina panel sequence
 //     9 = Custom Panel Sequence
 
@@ -1706,6 +1703,7 @@ int marcDuinoBaudRate = 9600; // Set the baud rate for the Syren motor controlle
 #include <spi4teensy3.h>
 #endif
 
+#include <ArduinoOTA.h> //This library is for OTA Updates via ESP32
 #include <Sabertooth.h>
 
 // ---------------------------------------------------------------------------------------
@@ -1787,8 +1785,8 @@ Sabertooth *SyR=new Sabertooth(SYREN_ADDR, Serial2);
 ///////Setup for USB and Bluetooth Devices////////////////////////////
 USB Usb;
 BTD Btd(&Usb);
-PS3BT *PS3NavFoot=new PS3BT(&Btd);
-PS3BT *PS3NavDome=new PS3BT(&Btd);
+PS3BT *PS3NavCtrl=new PS3BT(&Btd);
+//PS3BT *PS3NavCtrl=new PS3BT(&Btd);
 
 //Used for PS3 Fault Detection
 uint32_t msgLagTime = 0;
@@ -1856,8 +1854,8 @@ void setup()
     output.reserve(200); // Reserve 200 bytes for the output string
 
     //Setup for PS3
-    PS3NavFoot->attachOnInit(onInitPS3NavFoot); // onInitPS3NavFoot is called upon a new connection
-    PS3NavDome->attachOnInit(onInitPS3NavDome); 
+    PS3NavCtrl->attachOnInit(onInitPS3NavCtrl); // onInitPS3NavCtrl is called upon a new connection
+    //PS3NavCtrl->attachOnInit(onInitPS3NavCtrl); 
 
     //Setup for Serial2:: Motor Controllers - Sabertooth (Feet) 
     Serial2.begin(motorControllerBaudRate);
@@ -1878,12 +1876,27 @@ void setup()
     randomSeed(analogRead(0));  // random number seed for dome automation   
 }
 
+//ArduinoOTA.onStart([]() {
+  //Serial.println("OTA update starting...");
+//});
+//ArduinoOTA.onEnd([]() {
+  //Serial.println("OTA update finished!");
+//});
+//ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+  //Serial.printf("OTA progress: %u%%\n", (progress / total) * 100);
+//});
+//ArduinoOTA.onError([](ota_error_t error) {
+  //Serial.printf("OTA error: %u\n", error);
+//});
+//ArduinoOTA.begin();
+
 // =======================================================================================
 //           Main Program Loop - This is the recurring check loop for entire sketch
 // =======================================================================================
 
 void loop()
 {   
+    //ArduinoOTA.handle(); //Handles Over the Air Updates
     //Useful to enable with serial console when having controller issues.
     #ifdef TEST_CONROLLER
       testPS3Controller();
@@ -1922,7 +1935,7 @@ void loop()
 //           footDrive Motor Control Section
 // =======================================================================================
 
-boolean ps3FootMotorDrive(PS3BT* myPS3 = PS3NavFoot)
+boolean ps3FootMotorDrive(PS3BT* myPS3 = PS3NavCtrl)
 {
   int stickSpeed = 0;
   int turnnum = 0;
@@ -2164,7 +2177,7 @@ void footMotorDrive()
   //Flood control prevention
   if ((millis() - previousFootMillis) < serialLatency) return;  
   
-  if (PS3NavFoot->PS3Connected ) ps3FootMotorDrive(PS3NavFoot);
+  if (PS3NavCtrl->PS3Connected ) ps3FootMotorDrive(PS3NavCtrl);
   
 }  
 
@@ -2173,11 +2186,11 @@ void footMotorDrive()
 //           domeDrive Motor Control Section
 // =======================================================================================
 
-int ps3DomeDrive(PS3BT* myPS3 = PS3NavDome)
+int ps3DomeDrive(PS3BT* myPS3 = PS3NavCtrl)
 {
     int domeRotationSpeed = 0;
       
-    int joystickPosition = myPS3->getAnalogHat(LeftHatX);
+    int joystickPosition = myPS3->getAnalogHat(RightHatX);
         
     domeRotationSpeed = (map(joystickPosition, 0, 255, -domespeed, domespeed));
         
@@ -2248,19 +2261,19 @@ void domeDrive()
   int domeRotationSpeed = 0;
   int ps3NavControlSpeed = 0;
   
-  if (PS3NavDome->PS3Connected) 
+  if (PS3NavCtrl->PS3Connected) 
   {
     
-     ps3NavControlSpeed = ps3DomeDrive(PS3NavDome);
+     ps3NavControlSpeed = ps3DomeDrive(PS3NavCtrl);
 
      domeRotationSpeed = ps3NavControlSpeed; 
 
      rotateDome(domeRotationSpeed,"Controller Move");
     
-  } else if (PS3NavFoot->PS3Connected && PS3NavFoot->getButtonPress(L2))
+  } else if (PS3NavCtrl->PS3Connected && PS3NavCtrl->getButtonPress(L2))
   {
     
-     ps3NavControlSpeed = ps3DomeDrive(PS3NavFoot);
+     ps3NavControlSpeed = ps3DomeDrive(PS3NavCtrl);
 
      domeRotationSpeed = ps3NavControlSpeed; 
 
@@ -2280,7 +2293,7 @@ void domeDrive()
 //                               Toggle Control Section
 // =======================================================================================
 
-void ps3ToggleSettings(PS3BT* myPS3 = PS3NavFoot)
+void ps3ToggleSettings(PS3BT* myPS3 = PS3NavCtrl)
 {
 
     // enable / disable drive stick
@@ -2368,7 +2381,7 @@ void ps3ToggleSettings(PS3BT* myPS3 = PS3NavFoot)
 
 void toggleSettings()
 {
-   if (PS3NavFoot->PS3Connected ) ps3ToggleSettings(PS3NavFoot);
+   if (PS3NavCtrl->PS3Connected ) ps3ToggleSettings(PS3NavCtrl);
 }  
 
 // =======================================================================================
@@ -3240,7 +3253,7 @@ void marcDuinoButtonPush(int type, int MD_func, int MP3_num, int LD_type, String
 // ====================================================================================================================
 void marcDuinoFoot()
 {
-   if (PS3NavFoot->PS3Connected&& (PS3NavFoot->getButtonPress(UP) || PS3NavFoot->getButtonPress(DOWN) || PS3NavFoot->getButtonPress(LEFT) || PS3NavFoot->getButtonPress(RIGHT)))
+   if (PS3NavCtrl->PS3Connected&& (PS3NavCtrl->getButtonPress(UP) || PS3NavCtrl->getButtonPress(DOWN) || PS3NavCtrl->getButtonPress(LEFT) || PS3NavCtrl->getButtonPress(RIGHT)))
    {
       
        if ((millis() - previousMarcDuinoMillis) > 1000)
@@ -3262,10 +3275,10 @@ void marcDuinoFoot()
     //------------------------------------ 
     // Send triggers for the base buttons 
     //------------------------------------
-    if (PS3NavFoot->getButtonPress(UP) && !PS3NavFoot->getButtonPress(CROSS) && !PS3NavFoot->getButtonPress(CIRCLE) && !PS3NavFoot->getButtonPress(L1) && !PS3NavFoot->getButtonPress(PS) && marcDuinoButtonCounter == 1)
+    if (PS3NavCtrl->getButtonPress(UP) && !PS3NavCtrl->getButtonPress(CROSS) && !PS3NavCtrl->getButtonPress(CIRCLE) && !PS3NavCtrl->getButtonPress(L1) && !PS3NavCtrl->getButtonPress(PS) && marcDuinoButtonCounter == 1)
     {
 
-       if (PS3NavDome->PS3Connected && (PS3NavDome->getButtonPress(CROSS) || PS3NavDome->getButtonPress(CIRCLE) || PS3NavDome->getButtonPress(PS)))
+       if (PS3NavCtrl->PS3Connected && (PS3NavCtrl->getButtonPress(CROSS) || PS3NavCtrl->getButtonPress(CIRCLE) || PS3NavCtrl->getButtonPress(PS)))
        {
               // Skip this section
        } else
@@ -3312,10 +3325,10 @@ void marcDuinoFoot()
         
     }
     
-    if (PS3NavFoot->getButtonPress(DOWN) && !PS3NavFoot->getButtonPress(CROSS) && !PS3NavFoot->getButtonPress(CIRCLE) && !PS3NavFoot->getButtonPress(L1) && !PS3NavFoot->getButtonPress(PS) && marcDuinoButtonCounter == 1)
+    if (PS3NavCtrl->getButtonPress(DOWN) && !PS3NavCtrl->getButtonPress(CROSS) && !PS3NavCtrl->getButtonPress(CIRCLE) && !PS3NavCtrl->getButtonPress(L1) && !PS3NavCtrl->getButtonPress(PS) && marcDuinoButtonCounter == 1)
     {
       
-       if (PS3NavDome->PS3Connected && (PS3NavDome->getButtonPress(CROSS) || PS3NavDome->getButtonPress(CIRCLE) || PS3NavDome->getButtonPress(PS)))
+       if (PS3NavCtrl->PS3Connected && (PS3NavCtrl->getButtonPress(CROSS) || PS3NavCtrl->getButtonPress(CIRCLE) || PS3NavCtrl->getButtonPress(PS)))
        {
               // Skip this section
        } else
@@ -3361,9 +3374,9 @@ void marcDuinoFoot()
        }
     }
     
-    if (PS3NavFoot->getButtonPress(LEFT) && !PS3NavFoot->getButtonPress(CROSS) && !PS3NavFoot->getButtonPress(CIRCLE) && !PS3NavFoot->getButtonPress(L1) && !PS3NavFoot->getButtonPress(PS) && marcDuinoButtonCounter == 1)
+    if (PS3NavCtrl->getButtonPress(LEFT) && !PS3NavCtrl->getButtonPress(CROSS) && !PS3NavCtrl->getButtonPress(CIRCLE) && !PS3NavCtrl->getButtonPress(L1) && !PS3NavCtrl->getButtonPress(PS) && marcDuinoButtonCounter == 1)
     {
-       if (PS3NavDome->PS3Connected && (PS3NavDome->getButtonPress(CROSS) || PS3NavDome->getButtonPress(CIRCLE) || PS3NavDome->getButtonPress(PS)))
+       if (PS3NavCtrl->PS3Connected && (PS3NavCtrl->getButtonPress(CROSS) || PS3NavCtrl->getButtonPress(CIRCLE) || PS3NavCtrl->getButtonPress(PS)))
        {
               // Skip this section
        } else
@@ -3409,10 +3422,10 @@ void marcDuinoFoot()
         
      }
 
-    if (PS3NavFoot->getButtonPress(RIGHT) && !PS3NavFoot->getButtonPress(CROSS) && !PS3NavFoot->getButtonPress(CIRCLE) && !PS3NavFoot->getButtonPress(L1) && !PS3NavFoot->getButtonPress(PS) && marcDuinoButtonCounter == 1)
+    if (PS3NavCtrl->getButtonPress(RIGHT) && !PS3NavCtrl->getButtonPress(CROSS) && !PS3NavCtrl->getButtonPress(CIRCLE) && !PS3NavCtrl->getButtonPress(L1) && !PS3NavCtrl->getButtonPress(PS) && marcDuinoButtonCounter == 1)
     {
       
-       if (PS3NavDome->PS3Connected && (PS3NavDome->getButtonPress(CROSS) || PS3NavDome->getButtonPress(CIRCLE) || PS3NavDome->getButtonPress(PS)))
+       if (PS3NavCtrl->PS3Connected && (PS3NavCtrl->getButtonPress(CROSS) || PS3NavCtrl->getButtonPress(CIRCLE) || PS3NavCtrl->getButtonPress(PS)))
        {
               // Skip this section
        } else
@@ -3462,7 +3475,7 @@ void marcDuinoFoot()
     //------------------------------------ 
     // Send triggers for the CROSS + base buttons 
     //------------------------------------
-    if (((!PS3NavDome->PS3Connected && PS3NavFoot->getButtonPress(UP) && PS3NavFoot->getButtonPress(CROSS)) || (PS3NavDome->PS3Connected && PS3NavFoot->getButtonPress(UP) && PS3NavDome->getButtonPress(CROSS))) && marcDuinoButtonCounter == 1)
+    if (((!PS3NavCtrl->PS3Connected && PS3NavCtrl->getButtonPress(UP) && PS3NavCtrl->getButtonPress(CROSS)) || (PS3NavCtrl->PS3Connected && PS3NavCtrl->getButtonPress(UP) && PS3NavCtrl->getButtonPress(CROSS))) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(btnUP_CROSS_type, btnUP_CROSS_MD_func, btnUP_CROSS_cust_MP3_num, btnUP_CROSS_cust_LD_type, btnUP_CROSS_cust_LD_text, btnUP_CROSS_cust_panel, 
@@ -3506,7 +3519,7 @@ void marcDuinoFoot()
         
     }
     
-    if (((!PS3NavDome->PS3Connected && PS3NavFoot->getButtonPress(DOWN) && PS3NavFoot->getButtonPress(CROSS)) || (PS3NavDome->PS3Connected && PS3NavFoot->getButtonPress(DOWN) && PS3NavDome->getButtonPress(CROSS))) && marcDuinoButtonCounter == 1)
+    if (((!PS3NavCtrl->PS3Connected && PS3NavCtrl->getButtonPress(DOWN) && PS3NavCtrl->getButtonPress(CROSS)) || (PS3NavCtrl->PS3Connected && PS3NavCtrl->getButtonPress(DOWN) && PS3NavCtrl->getButtonPress(CROSS))) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(btnDown_CROSS_type, btnDown_CROSS_MD_func, btnDown_CROSS_cust_MP3_num, btnDown_CROSS_cust_LD_type, btnDown_CROSS_cust_LD_text, btnDown_CROSS_cust_panel, 
@@ -3550,7 +3563,7 @@ void marcDuinoFoot()
         
     }
     
-    if (((!PS3NavDome->PS3Connected && PS3NavFoot->getButtonPress(LEFT) && PS3NavFoot->getButtonPress(CROSS)) || (PS3NavDome->PS3Connected && PS3NavFoot->getButtonPress(LEFT) && PS3NavDome->getButtonPress(CROSS))) && marcDuinoButtonCounter == 1)
+    if (((!PS3NavCtrl->PS3Connected && PS3NavCtrl->getButtonPress(LEFT) && PS3NavCtrl->getButtonPress(CROSS)) || (PS3NavCtrl->PS3Connected && PS3NavCtrl->getButtonPress(LEFT) && PS3NavCtrl->getButtonPress(CROSS))) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(btnLeft_CROSS_type, btnLeft_CROSS_MD_func, btnLeft_CROSS_cust_MP3_num, btnLeft_CROSS_cust_LD_type, btnLeft_CROSS_cust_LD_text, btnLeft_CROSS_cust_panel, 
@@ -3594,7 +3607,7 @@ void marcDuinoFoot()
         
     }
 
-    if (((!PS3NavDome->PS3Connected && PS3NavFoot->getButtonPress(RIGHT) && PS3NavFoot->getButtonPress(CROSS)) || (PS3NavDome->PS3Connected && PS3NavFoot->getButtonPress(RIGHT) && PS3NavDome->getButtonPress(CROSS))) && marcDuinoButtonCounter == 1)
+    if (((!PS3NavCtrl->PS3Connected && PS3NavCtrl->getButtonPress(RIGHT) && PS3NavCtrl->getButtonPress(CROSS)) || (PS3NavCtrl->PS3Connected && PS3NavCtrl->getButtonPress(RIGHT) && PS3NavCtrl->getButtonPress(CROSS))) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(btnRight_CROSS_type, btnRight_CROSS_MD_func, btnRight_CROSS_cust_MP3_num, btnRight_CROSS_cust_LD_type, btnRight_CROSS_cust_LD_text, btnRight_CROSS_cust_panel, 
@@ -3641,7 +3654,7 @@ void marcDuinoFoot()
     //------------------------------------ 
     // Send triggers for the CIRCLE + base buttons 
     //------------------------------------
-    if (((!PS3NavDome->PS3Connected && PS3NavFoot->getButtonPress(UP) && PS3NavFoot->getButtonPress(CIRCLE)) || (PS3NavDome->PS3Connected && PS3NavFoot->getButtonPress(UP) && PS3NavDome->getButtonPress(CIRCLE))) && marcDuinoButtonCounter == 1)
+    if (((!PS3NavCtrl->PS3Connected && PS3NavCtrl->getButtonPress(UP) && PS3NavCtrl->getButtonPress(CIRCLE)) || (PS3NavCtrl->PS3Connected && PS3NavCtrl->getButtonPress(UP) && PS3NavCtrl->getButtonPress(CIRCLE))) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(btnUP_CIRCLE_type, btnUP_CIRCLE_MD_func, btnUP_CIRCLE_cust_MP3_num, btnUP_CIRCLE_cust_LD_type, btnUP_CIRCLE_cust_LD_text, btnUP_CIRCLE_cust_panel, 
@@ -3685,7 +3698,7 @@ void marcDuinoFoot()
         
     }
     
-    if (((!PS3NavDome->PS3Connected && PS3NavFoot->getButtonPress(DOWN) && PS3NavFoot->getButtonPress(CIRCLE)) || (PS3NavDome->PS3Connected && PS3NavFoot->getButtonPress(DOWN) && PS3NavDome->getButtonPress(CIRCLE))) && marcDuinoButtonCounter == 1)
+    if (((!PS3NavCtrl->PS3Connected && PS3NavCtrl->getButtonPress(DOWN) && PS3NavCtrl->getButtonPress(CIRCLE)) || (PS3NavCtrl->PS3Connected && PS3NavCtrl->getButtonPress(DOWN) && PS3NavCtrl->getButtonPress(CIRCLE))) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(btnDown_CIRCLE_type, btnDown_CIRCLE_MD_func, btnDown_CIRCLE_cust_MP3_num, btnDown_CIRCLE_cust_LD_type, btnDown_CIRCLE_cust_LD_text, btnDown_CIRCLE_cust_panel, 
@@ -3729,7 +3742,7 @@ void marcDuinoFoot()
         
     }
     
-    if (((!PS3NavDome->PS3Connected && PS3NavFoot->getButtonPress(LEFT) && PS3NavFoot->getButtonPress(CIRCLE)) || (PS3NavDome->PS3Connected && PS3NavFoot->getButtonPress(LEFT) && PS3NavDome->getButtonPress(CIRCLE))) && marcDuinoButtonCounter == 1)
+    if (((!PS3NavCtrl->PS3Connected && PS3NavCtrl->getButtonPress(LEFT) && PS3NavCtrl->getButtonPress(CIRCLE)) || (PS3NavCtrl->PS3Connected && PS3NavCtrl->getButtonPress(LEFT) && PS3NavCtrl->getButtonPress(CIRCLE))) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(btnLeft_CIRCLE_type, btnLeft_CIRCLE_MD_func, btnLeft_CIRCLE_cust_MP3_num, btnLeft_CIRCLE_cust_LD_type, btnLeft_CIRCLE_cust_LD_text, btnLeft_CIRCLE_cust_panel, 
@@ -3773,7 +3786,7 @@ void marcDuinoFoot()
         
     }
 
-    if (((!PS3NavDome->PS3Connected && PS3NavFoot->getButtonPress(RIGHT) && PS3NavFoot->getButtonPress(CIRCLE)) || (PS3NavDome->PS3Connected && PS3NavFoot->getButtonPress(RIGHT) && PS3NavDome->getButtonPress(CIRCLE))) && marcDuinoButtonCounter == 1)
+    if (((!PS3NavCtrl->PS3Connected && PS3NavCtrl->getButtonPress(RIGHT) && PS3NavCtrl->getButtonPress(CIRCLE)) || (PS3NavCtrl->PS3Connected && PS3NavCtrl->getButtonPress(RIGHT) && PS3NavCtrl->getButtonPress(CIRCLE))) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(btnRight_CIRCLE_type, btnRight_CIRCLE_MD_func, btnRight_CIRCLE_cust_MP3_num, btnRight_CIRCLE_cust_LD_type, btnRight_CIRCLE_cust_LD_text, btnRight_CIRCLE_cust_panel, 
@@ -3821,7 +3834,7 @@ void marcDuinoFoot()
     //------------------------------------ 
     // Send triggers for the L1 + base buttons 
     //------------------------------------
-    if (PS3NavFoot->getButtonPress(UP) && PS3NavFoot->getButtonPress(L1) && marcDuinoButtonCounter == 1)
+    if (PS3NavCtrl->getButtonPress(UP) && PS3NavCtrl->getButtonPress(L1) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(btnUP_L1_type, btnUP_L1_MD_func, btnUP_L1_cust_MP3_num, btnUP_L1_cust_LD_type, btnUP_L1_cust_LD_text, btnUP_L1_cust_panel, 
@@ -3865,7 +3878,7 @@ void marcDuinoFoot()
         
     }
     
-    if (PS3NavFoot->getButtonPress(DOWN) && PS3NavFoot->getButtonPress(L1) && marcDuinoButtonCounter == 1)
+    if (PS3NavCtrl->getButtonPress(DOWN) && PS3NavCtrl->getButtonPress(L1) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(btnDown_L1_type, btnDown_L1_MD_func, btnDown_L1_cust_MP3_num, btnDown_L1_cust_LD_type, btnDown_L1_cust_LD_text, btnDown_L1_cust_panel, 
@@ -3909,7 +3922,7 @@ void marcDuinoFoot()
         
     }
     
-    if (PS3NavFoot->getButtonPress(LEFT) && PS3NavFoot->getButtonPress(L1) && marcDuinoButtonCounter == 1)
+    if (PS3NavCtrl->getButtonPress(LEFT) && PS3NavCtrl->getButtonPress(L1) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(btnLeft_L1_type, btnLeft_L1_MD_func, btnLeft_L1_cust_MP3_num, btnLeft_L1_cust_LD_type, btnLeft_L1_cust_LD_text, btnLeft_L1_cust_panel, 
@@ -3953,7 +3966,7 @@ void marcDuinoFoot()
         
     }
 
-    if (PS3NavFoot->getButtonPress(RIGHT) && PS3NavFoot->getButtonPress(L1) && marcDuinoButtonCounter == 1)
+    if (PS3NavCtrl->getButtonPress(RIGHT) && PS3NavCtrl->getButtonPress(L1) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(btnRight_L1_type, btnRight_L1_MD_func, btnRight_L1_cust_MP3_num, btnRight_L1_cust_LD_type, btnRight_L1_cust_LD_text, btnRight_L1_cust_panel, 
@@ -4000,7 +4013,7 @@ void marcDuinoFoot()
     //------------------------------------ 
     // Send triggers for the PS + base buttons 
     //------------------------------------
-    if (((!PS3NavDome->PS3Connected && PS3NavFoot->getButtonPress(UP) && PS3NavFoot->getButtonPress(PS)) || (PS3NavDome->PS3Connected && PS3NavFoot->getButtonPress(UP) && PS3NavDome->getButtonPress(PS))) && marcDuinoButtonCounter == 1)
+    if (((!PS3NavCtrl->PS3Connected && PS3NavCtrl->getButtonPress(UP) && PS3NavCtrl->getButtonPress(PS)) || (PS3NavCtrl->PS3Connected && PS3NavCtrl->getButtonPress(UP) && PS3NavCtrl->getButtonPress(PS))) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(btnUP_PS_type, btnUP_PS_MD_func, btnUP_PS_cust_MP3_num, btnUP_PS_cust_LD_type, btnUP_PS_cust_LD_text, btnUP_PS_cust_panel, 
@@ -4044,7 +4057,7 @@ void marcDuinoFoot()
         
     }
     
-    if (((!PS3NavDome->PS3Connected && PS3NavFoot->getButtonPress(DOWN) && PS3NavFoot->getButtonPress(PS)) || (PS3NavDome->PS3Connected && PS3NavFoot->getButtonPress(DOWN) && PS3NavDome->getButtonPress(PS))) && marcDuinoButtonCounter == 1)
+    if (((!PS3NavCtrl->PS3Connected && PS3NavCtrl->getButtonPress(DOWN) && PS3NavCtrl->getButtonPress(PS)) || (PS3NavCtrl->PS3Connected && PS3NavCtrl->getButtonPress(DOWN) && PS3NavCtrl->getButtonPress(PS))) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(btnDown_PS_type, btnDown_PS_MD_func, btnDown_PS_cust_MP3_num, btnDown_PS_cust_LD_type, btnDown_PS_cust_LD_text, btnDown_PS_cust_panel, 
@@ -4088,7 +4101,7 @@ void marcDuinoFoot()
         
     }
     
-    if (((!PS3NavDome->PS3Connected && PS3NavFoot->getButtonPress(LEFT) && PS3NavFoot->getButtonPress(PS)) || (PS3NavDome->PS3Connected && PS3NavFoot->getButtonPress(LEFT) && PS3NavDome->getButtonPress(PS))) && marcDuinoButtonCounter == 1)
+    if (((!PS3NavCtrl->PS3Connected && PS3NavCtrl->getButtonPress(LEFT) && PS3NavCtrl->getButtonPress(PS)) || (PS3NavCtrl->PS3Connected && PS3NavCtrl->getButtonPress(LEFT) && PS3NavCtrl->getButtonPress(PS))) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(btnLeft_PS_type, btnLeft_PS_MD_func, btnLeft_PS_cust_MP3_num, btnLeft_PS_cust_LD_type, btnLeft_PS_cust_LD_text, btnLeft_PS_cust_panel, 
@@ -4132,7 +4145,7 @@ void marcDuinoFoot()
         
     }
 
-    if (((!PS3NavDome->PS3Connected && PS3NavFoot->getButtonPress(RIGHT) && PS3NavFoot->getButtonPress(PS)) || (PS3NavDome->PS3Connected && PS3NavFoot->getButtonPress(RIGHT) && PS3NavDome->getButtonPress(PS))) && marcDuinoButtonCounter == 1)
+    if (((!PS3NavCtrl->PS3Connected && PS3NavCtrl->getButtonPress(RIGHT) && PS3NavCtrl->getButtonPress(PS)) || (PS3NavCtrl->PS3Connected && PS3NavCtrl->getButtonPress(RIGHT) && PS3NavCtrl->getButtonPress(PS))) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(btnRight_PS_type, btnRight_PS_MD_func, btnRight_PS_cust_MP3_num, btnRight_PS_cust_LD_type, btnRight_PS_cust_LD_text, btnRight_PS_cust_panel, 
@@ -4183,7 +4196,7 @@ void marcDuinoFoot()
 // ===================================================================================================================
 void marcDuinoDome()
 {
-   if (PS3NavDome->PS3Connected && (PS3NavDome->getButtonPress(UP) || PS3NavDome->getButtonPress(DOWN) || PS3NavDome->getButtonPress(LEFT) || PS3NavDome->getButtonPress(RIGHT)))
+   if (PS3NavCtrl->PS3Connected && (PS3NavCtrl->getButtonPress(UP) || PS3NavCtrl->getButtonPress(DOWN) || PS3NavCtrl->getButtonPress(LEFT) || PS3NavCtrl->getButtonPress(RIGHT)))
    {
       
        if ((millis() - previousMarcDuinoMillis) > 1000)
@@ -4205,7 +4218,7 @@ void marcDuinoDome()
     //------------------------------------ 
     // Send triggers for the base buttons 
     //------------------------------------
-    if (PS3NavDome->getButtonPress(UP) && !PS3NavDome->getButtonPress(CROSS) && !PS3NavDome->getButtonPress(CIRCLE) && !PS3NavDome->getButtonPress(L1) && !PS3NavDome->getButtonPress(PS) && !PS3NavFoot->getButtonPress(CROSS) && !PS3NavFoot->getButtonPress(CIRCLE) && !PS3NavFoot->getButtonPress(PS) && marcDuinoButtonCounter == 1)
+    if (PS3NavCtrl->getButtonPress(UP) && !PS3NavCtrl->getButtonPress(CROSS) && !PS3NavCtrl->getButtonPress(CIRCLE) && !PS3NavCtrl->getButtonPress(L1) && !PS3NavCtrl->getButtonPress(PS) && !PS3NavCtrl->getButtonPress(CROSS) && !PS3NavCtrl->getButtonPress(CIRCLE) && !PS3NavCtrl->getButtonPress(PS) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(1, FTbtnUP_MD_func, btnUP_cust_MP3_num, btnUP_cust_LD_type, btnUP_cust_LD_text, btnUP_cust_panel, 
@@ -4248,7 +4261,7 @@ void marcDuinoDome()
         
     }
     
-    if (PS3NavDome->getButtonPress(DOWN) && !PS3NavDome->getButtonPress(CROSS) && !PS3NavDome->getButtonPress(CIRCLE) && !PS3NavDome->getButtonPress(L1) && !PS3NavDome->getButtonPress(PS) && !PS3NavFoot->getButtonPress(CROSS) && !PS3NavFoot->getButtonPress(CIRCLE) && !PS3NavFoot->getButtonPress(PS) && marcDuinoButtonCounter == 1)
+    if (PS3NavCtrl->getButtonPress(DOWN) && !PS3NavCtrl->getButtonPress(CROSS) && !PS3NavCtrl->getButtonPress(CIRCLE) && !PS3NavCtrl->getButtonPress(L1) && !PS3NavCtrl->getButtonPress(PS) && !PS3NavCtrl->getButtonPress(CROSS) && !PS3NavCtrl->getButtonPress(CIRCLE) && !PS3NavCtrl->getButtonPress(PS) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(1, FTbtnDown_MD_func, btnDown_cust_MP3_num, btnDown_cust_LD_type, btnDown_cust_LD_text, btnDown_cust_panel, 
@@ -4290,7 +4303,7 @@ void marcDuinoDome()
         return;      
     }
     
-    if (PS3NavDome->getButtonPress(LEFT) && !PS3NavDome->getButtonPress(CROSS) && !PS3NavDome->getButtonPress(CIRCLE) && !PS3NavDome->getButtonPress(L1) && !PS3NavDome->getButtonPress(PS) && !PS3NavFoot->getButtonPress(CROSS) && !PS3NavFoot->getButtonPress(CIRCLE) && !PS3NavFoot->getButtonPress(PS) && marcDuinoButtonCounter == 1)
+    if (PS3NavCtrl->getButtonPress(LEFT) && !PS3NavCtrl->getButtonPress(CROSS) && !PS3NavCtrl->getButtonPress(CIRCLE) && !PS3NavCtrl->getButtonPress(L1) && !PS3NavCtrl->getButtonPress(PS) && !PS3NavCtrl->getButtonPress(CROSS) && !PS3NavCtrl->getButtonPress(CIRCLE) && !PS3NavCtrl->getButtonPress(PS) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(1, FTbtnLeft_MD_func, btnLeft_cust_MP3_num, btnLeft_cust_LD_type, btnLeft_cust_LD_text, btnLeft_cust_panel, 
@@ -4333,7 +4346,7 @@ void marcDuinoDome()
         
     }
 
-    if (PS3NavDome->getButtonPress(RIGHT) && !PS3NavDome->getButtonPress(CROSS) && !PS3NavDome->getButtonPress(CIRCLE) && !PS3NavDome->getButtonPress(L1) && !PS3NavDome->getButtonPress(PS) && !PS3NavFoot->getButtonPress(CROSS) && !PS3NavFoot->getButtonPress(CIRCLE) && !PS3NavFoot->getButtonPress(PS) && marcDuinoButtonCounter == 1)
+    if (PS3NavCtrl->getButtonPress(RIGHT) && !PS3NavCtrl->getButtonPress(CROSS) && !PS3NavCtrl->getButtonPress(CIRCLE) && !PS3NavCtrl->getButtonPress(L1) && !PS3NavCtrl->getButtonPress(PS) && !PS3NavCtrl->getButtonPress(CROSS) && !PS3NavCtrl->getButtonPress(CIRCLE) && !PS3NavCtrl->getButtonPress(PS) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(1, FTbtnRight_MD_func, btnRight_cust_MP3_num, btnRight_cust_LD_type, btnRight_cust_LD_text, btnRight_cust_panel, 
@@ -4380,7 +4393,7 @@ void marcDuinoDome()
     //------------------------------------ 
     // Send triggers for the CROSS + base buttons 
     //------------------------------------
-    if (PS3NavDome->getButtonPress(UP) && PS3NavFoot->getButtonPress(CROSS) && marcDuinoButtonCounter == 1)
+    if (PS3NavCtrl->getButtonPress(UP) && PS3NavCtrl->getButtonPress(CROSS) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(1, FTbtnUP_CROSS_MD_func, btnUP_CROSS_cust_MP3_num, btnUP_CROSS_cust_LD_type, btnUP_CROSS_cust_LD_text, btnUP_CROSS_cust_panel, 
@@ -4424,7 +4437,7 @@ void marcDuinoDome()
         
     }
     
-    if (PS3NavDome->getButtonPress(DOWN) && PS3NavFoot->getButtonPress(CROSS) && marcDuinoButtonCounter == 1)
+    if (PS3NavCtrl->getButtonPress(DOWN) && PS3NavCtrl->getButtonPress(CROSS) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(1, FTbtnDown_CROSS_MD_func, btnDown_CROSS_cust_MP3_num, btnDown_CROSS_cust_LD_type, btnDown_CROSS_cust_LD_text, btnDown_CROSS_cust_panel, 
@@ -4468,7 +4481,7 @@ void marcDuinoDome()
         
     }
     
-    if (PS3NavDome->getButtonPress(LEFT) && PS3NavFoot->getButtonPress(CROSS) && marcDuinoButtonCounter == 1)
+    if (PS3NavCtrl->getButtonPress(LEFT) && PS3NavCtrl->getButtonPress(CROSS) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(1, FTbtnLeft_CROSS_MD_func, btnLeft_CROSS_cust_MP3_num, btnLeft_CROSS_cust_LD_type, btnLeft_CROSS_cust_LD_text, btnLeft_CROSS_cust_panel, 
@@ -4512,7 +4525,7 @@ void marcDuinoDome()
         
     }
 
-    if (PS3NavDome->getButtonPress(RIGHT) && PS3NavFoot->getButtonPress(CROSS) && marcDuinoButtonCounter == 1)
+    if (PS3NavCtrl->getButtonPress(RIGHT) && PS3NavCtrl->getButtonPress(CROSS) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(1, FTbtnRight_CROSS_MD_func, btnRight_CROSS_cust_MP3_num, btnRight_CROSS_cust_LD_type, btnRight_CROSS_cust_LD_text, btnRight_CROSS_cust_panel, 
@@ -4559,7 +4572,7 @@ void marcDuinoDome()
     //------------------------------------ 
     // Send triggers for the CIRCLE + base buttons 
     //------------------------------------
-    if (PS3NavDome->getButtonPress(UP) && PS3NavFoot->getButtonPress(CIRCLE) && marcDuinoButtonCounter == 1)
+    if (PS3NavCtrl->getButtonPress(UP) && PS3NavCtrl->getButtonPress(CIRCLE) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(1, FTbtnUP_CIRCLE_MD_func, btnUP_CIRCLE_cust_MP3_num, btnUP_CIRCLE_cust_LD_type, btnUP_CIRCLE_cust_LD_text, btnUP_CIRCLE_cust_panel, 
@@ -4603,7 +4616,7 @@ void marcDuinoDome()
         
     }
     
-    if (PS3NavDome->getButtonPress(DOWN) && PS3NavFoot->getButtonPress(CIRCLE) && marcDuinoButtonCounter == 1)
+    if (PS3NavCtrl->getButtonPress(DOWN) && PS3NavCtrl->getButtonPress(CIRCLE) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(1, FTbtnDown_CIRCLE_MD_func, btnDown_CIRCLE_cust_MP3_num, btnDown_CIRCLE_cust_LD_type, btnDown_CIRCLE_cust_LD_text, btnDown_CIRCLE_cust_panel, 
@@ -4647,7 +4660,7 @@ void marcDuinoDome()
         
     }
     
-    if (PS3NavDome->getButtonPress(LEFT) && PS3NavFoot->getButtonPress(CIRCLE) && marcDuinoButtonCounter == 1)
+    if (PS3NavCtrl->getButtonPress(LEFT) && PS3NavCtrl->getButtonPress(CIRCLE) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(1, FTbtnLeft_CIRCLE_MD_func, btnLeft_CIRCLE_cust_MP3_num, btnLeft_CIRCLE_cust_LD_type, btnLeft_CIRCLE_cust_LD_text, btnLeft_CIRCLE_cust_panel, 
@@ -4691,7 +4704,7 @@ void marcDuinoDome()
         
     }
 
-    if (PS3NavDome->getButtonPress(RIGHT) && PS3NavFoot->getButtonPress(CIRCLE) && marcDuinoButtonCounter == 1)
+    if (PS3NavCtrl->getButtonPress(RIGHT) && PS3NavCtrl->getButtonPress(CIRCLE) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(1, FTbtnRight_CIRCLE_MD_func, btnRight_CIRCLE_cust_MP3_num, btnRight_CIRCLE_cust_LD_type, btnRight_CIRCLE_cust_LD_text, btnRight_CIRCLE_cust_panel, 
@@ -4739,7 +4752,7 @@ void marcDuinoDome()
     //------------------------------------ 
     // Send triggers for the L1 + base buttons 
     //------------------------------------
-    if (PS3NavDome->getButtonPress(UP) && PS3NavDome->getButtonPress(L1) && marcDuinoButtonCounter == 1)
+    if (PS3NavCtrl->getButtonPress(UP) && PS3NavCtrl->getButtonPress(L1) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(1, FTbtnUP_L1_MD_func, btnUP_L1_cust_MP3_num, btnUP_L1_cust_LD_type, btnUP_L1_cust_LD_text, btnUP_L1_cust_panel, 
@@ -4783,7 +4796,7 @@ void marcDuinoDome()
         
     }
     
-    if (PS3NavDome->getButtonPress(DOWN) && PS3NavDome->getButtonPress(L1) && marcDuinoButtonCounter == 1)
+    if (PS3NavCtrl->getButtonPress(DOWN) && PS3NavCtrl->getButtonPress(L1) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(1, FTbtnDown_L1_MD_func, btnDown_L1_cust_MP3_num, btnDown_L1_cust_LD_type, btnDown_L1_cust_LD_text, btnDown_L1_cust_panel, 
@@ -4827,7 +4840,7 @@ void marcDuinoDome()
         
     }
     
-    if (PS3NavDome->getButtonPress(LEFT) && PS3NavDome->getButtonPress(L1) && marcDuinoButtonCounter == 1)
+    if (PS3NavCtrl->getButtonPress(LEFT) && PS3NavCtrl->getButtonPress(L1) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(1, FTbtnLeft_L1_MD_func, btnLeft_L1_cust_MP3_num, btnLeft_L1_cust_LD_type, btnLeft_L1_cust_LD_text, btnLeft_L1_cust_panel, 
@@ -4871,7 +4884,7 @@ void marcDuinoDome()
         
     }
 
-    if (PS3NavDome->getButtonPress(RIGHT) && PS3NavDome->getButtonPress(L1) && marcDuinoButtonCounter == 1)
+    if (PS3NavCtrl->getButtonPress(RIGHT) && PS3NavCtrl->getButtonPress(L1) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(1, FTbtnRight_L1_MD_func, btnRight_L1_cust_MP3_num, btnRight_L1_cust_LD_type, btnRight_L1_cust_LD_text, btnRight_L1_cust_panel, 
@@ -4918,7 +4931,7 @@ void marcDuinoDome()
     //------------------------------------ 
     // Send triggers for the PS + base buttons 
     //------------------------------------
-    if (PS3NavDome->getButtonPress(UP) && PS3NavFoot->getButtonPress(PS) && marcDuinoButtonCounter == 1)
+    if (PS3NavCtrl->getButtonPress(UP) && PS3NavCtrl->getButtonPress(PS) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(1, FTbtnUP_PS_MD_func, btnUP_PS_cust_MP3_num, btnUP_PS_cust_LD_type, btnUP_PS_cust_LD_text, btnUP_PS_cust_panel, 
@@ -4961,7 +4974,7 @@ void marcDuinoDome()
         
     }
     
-    if (PS3NavDome->getButtonPress(DOWN) && PS3NavFoot->getButtonPress(PS) && marcDuinoButtonCounter == 1)
+    if (PS3NavCtrl->getButtonPress(DOWN) && PS3NavCtrl->getButtonPress(PS) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(1, FTbtnDown_PS_MD_func, btnDown_PS_cust_MP3_num, btnDown_PS_cust_LD_type, btnDown_PS_cust_LD_text, btnDown_PS_cust_panel, 
@@ -5005,7 +5018,7 @@ void marcDuinoDome()
         
     }
     
-    if (PS3NavDome->getButtonPress(LEFT) && PS3NavFoot->getButtonPress(PS) && marcDuinoButtonCounter == 1)
+    if (PS3NavCtrl->getButtonPress(LEFT) && PS3NavCtrl->getButtonPress(PS) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(1, FTbtnLeft_PS_MD_func, btnLeft_PS_cust_MP3_num, btnLeft_PS_cust_LD_type, btnLeft_PS_cust_LD_text, btnLeft_PS_cust_panel, 
@@ -5049,7 +5062,7 @@ void marcDuinoDome()
         
     }
 
-    if (PS3NavDome->getButtonPress(RIGHT) && PS3NavFoot->getButtonPress(PS) && marcDuinoButtonCounter == 1)
+    if (PS3NavCtrl->getButtonPress(RIGHT) && PS3NavCtrl->getButtonPress(PS) && marcDuinoButtonCounter == 1)
     {
       
        marcDuinoButtonPush(1, FTbtnRight_PS_MD_func, btnRight_PS_cust_MP3_num, btnRight_PS_cust_LD_type, btnRight_PS_cust_LD_text, btnRight_PS_cust_panel, 
@@ -5508,15 +5521,15 @@ void autoDome()
 //           PPS3 Controller Device Mgt Functions
 // =======================================================================================
 
-void onInitPS3NavFoot()
+void onInitPS3NavCtrl()
 {
     String btAddress = getLastConnectedBtMAC();
-    PS3NavFoot->setLedOn(LED1);
+    PS3NavCtrl->setLedOn(LED1);
     isPS3NavigatonInitialized = true;
     badPS3Data = 0;
 
     #ifdef SHADOW_DEBUG
-      output += "\r\nBT Address of Last connected Device when FOOT PS3 Connected: ";
+      output += "\r\nBT Address of Last connected Device when Main PS3 Connected: ";
       output += btAddress;
     #endif
     
@@ -5524,7 +5537,7 @@ void onInitPS3NavFoot()
     {
         
           #ifdef SHADOW_DEBUG
-             output += "\r\nWe have our FOOT controller connected.\r\n";
+             output += "\r\nWe have our Main controller connected.\r\n";
           #endif
           
           mainControllerConnected = true;
@@ -5535,58 +5548,19 @@ void onInitPS3NavFoot()
       
         // Prevent connection from anything but the MAIN controllers          
         #ifdef SHADOW_DEBUG
-              output += "\r\nWe have an invalid controller trying to connect as tha FOOT controller, it will be dropped.\r\n";
+              output += "\r\nWe have an invalid controller trying to connect as tha Main controller, it will be dropped.\r\n";
         #endif
 
         ST->stop();
         SyR->stop();
         isFootMotorStopped = true;
         footDriveSpeed = 0;
-        PS3NavFoot->setLedOff(LED1);
-        PS3NavFoot->disconnect();
+        PS3NavCtrl->setLedOff(LED1);
+        PS3NavCtrl->disconnect();
         printOutput();
     
         isPS3NavigatonInitialized = false;
         mainControllerConnected = false;
-        
-    } 
-}
-
-void onInitPS3NavDome()
-{
-    String btAddress = getLastConnectedBtMAC();
-    PS3NavDome->setLedOn(LED1);
-    isSecondaryPS3NavigatonInitialized = true;
-    badPS3Data = 0;
-    
-    if (btAddress == PS3ControllerDomeMAC || btAddress == PS3ControllerBackupDomeMAC)
-    {
-        
-          #ifdef SHADOW_DEBUG
-             output += "\r\nWe have our DOME controller connected.\r\n";
-          #endif
-          
-          domeControllerConnected = true;
-          WaitingforReconnectDome = true;
-          
-    } else
-    {
-      
-        // Prevent connection from anything but the DOME controllers          
-        #ifdef SHADOW_DEBUG
-              output += "\r\nWe have an invalid controller trying to connect as the DOME controller, it will be dropped.\r\n";
-        #endif
-
-        ST->stop();
-        SyR->stop();
-        isFootMotorStopped = true;
-        footDriveSpeed = 0;
-        PS3NavDome->setLedOff(LED1);
-        PS3NavDome->disconnect();
-        printOutput();
-    
-        isSecondaryPS3NavigatonInitialized = false;
-        domeControllerConnected = false;
         
     } 
 }
@@ -5617,11 +5591,11 @@ return btAddress;
 
 boolean criticalFaultDetect()
 {
-    if (PS3NavFoot->PS3Connected || PS3NavFoot->PS3Connected )
+    if (PS3NavCtrl->PS3Connected)
     {
         
         currentTime = millis();
-        lastMsgTime = PS3NavFoot->getLastMessageTime();
+        lastMsgTime = PS3NavCtrl->getLastMessageTime();
         msgLagTime = currentTime - lastMsgTime;            
         
         if (WaitingforReconnect)
@@ -5674,17 +5648,17 @@ boolean criticalFaultDetect()
             ST->stop();
             isFootMotorStopped = true;
             footDriveSpeed = 0;
-            PS3NavFoot->disconnect();
+            PS3NavCtrl->disconnect();
             WaitingforReconnect = true;
             return true;
         }
 
         //Check PS3 Signal Data
-        if(!PS3NavFoot->getStatus(Plugged) && !PS3NavFoot->getStatus(Unplugged))
+        if(!PS3NavCtrl->getStatus(Plugged) && !PS3NavCtrl->getStatus(Unplugged))
         {
             //We don't have good data from the controller.
             //Wait 15ms if no second controller - 100ms if some controller connected, Update USB, and try again
-            if (PS3NavFoot->PS3NavigationConnected || PS3NavFoot->PS3MoveConnected || PS3NavFoot->PS3Connected)
+            if (PS3NavCtrl->PS3NavigationConnected || PS3NavCtrl->PS3MoveConnected || PS3NavCtrl->PS3Connected)
             {
                   delay(100);     
             } else
@@ -5693,9 +5667,9 @@ boolean criticalFaultDetect()
             }
             
             Usb.Task();   
-            lastMsgTime = PS3NavFoot->getLastMessageTime();
+            lastMsgTime = PS3NavCtrl->getLastMessageTime();
             
-            if(!PS3NavFoot->getStatus(Plugged) && !PS3NavFoot->getStatus(Unplugged))
+            if(!PS3NavCtrl->getStatus(Plugged) && !PS3NavCtrl->getStatus(Unplugged))
             {
                 badPS3Data++;
                 #ifdef SHADOW_DEBUG
@@ -5719,7 +5693,7 @@ boolean criticalFaultDetect()
             ST->stop();
             isFootMotorStopped = true;
             footDriveSpeed = 0;
-            PS3NavFoot->disconnect();
+            PS3NavCtrl->disconnect();
             WaitingforReconnect = true;
             return true;
         }
@@ -5742,11 +5716,11 @@ boolean criticalFaultDetect()
 
 boolean criticalFaultDetectDome()
 {
-    if (PS3NavDome->PS3NavigationConnected || PS3NavDome->PS3MoveConnected)
+    if (PS3NavCtrl->PS3NavigationConnected || PS3NavCtrl->PS3MoveConnected)
     {
 
         currentTime = millis();
-        lastMsgTime = PS3NavDome->getLastMessageTime();
+        lastMsgTime = PS3NavCtrl->getLastMessageTime();
         msgLagTime = currentTime - lastMsgTime;            
         
         if (WaitingforReconnectDome)
@@ -5785,23 +5759,23 @@ boolean criticalFaultDetectDome()
             #endif
             
             SyR->stop();
-            PS3NavDome->disconnect();
+            PS3NavCtrl->disconnect();
             WaitingforReconnectDome = true;
             return true;
         }
 
         //Check PS3 Signal Data
-        if(!PS3NavDome->getStatus(Plugged) && !PS3NavDome->getStatus(Unplugged))
+        if(!PS3NavCtrl->getStatus(Plugged) && !PS3NavCtrl->getStatus(Unplugged))
         {
 
             // We don't have good data from the controller.
-            //Wait 100ms, Update USB, and try again
+            //Wait 100ms, Update USB and try again
             delay(100);
             
             Usb.Task();
-            lastMsgTime = PS3NavDome->getLastMessageTime();
+            lastMsgTime = PS3NavCtrl->getLastMessageTime();
             
-            if(!PS3NavDome->getStatus(Plugged) && !PS3NavDome->getStatus(Unplugged))
+            if(!PS3NavCtrl->getStatus(Plugged) && !PS3NavCtrl->getStatus(Unplugged))
             {
                 badPS3DataDome++;
                 #ifdef SHADOW_DEBUG
@@ -5821,7 +5795,7 @@ boolean criticalFaultDetectDome()
                 output += "Disconnecting the controller and stop motors.\r\n";
             #endif
             SyR->stop();
-            PS3NavDome->disconnect();
+            PS3NavCtrl->disconnect();
             WaitingforReconnectDome = true;
             return true;
         }
@@ -5840,7 +5814,7 @@ boolean readUSB()
      Usb.Task();
      
     //The more devices we have connected to the USB or BlueTooth, the more often Usb.Task need to be called to eliminate latency.
-    if (PS3NavFoot->PS3Connected)
+    if (PS3NavCtrl->PS3Connected)
     {
         if (criticalFaultDetect())
         {
@@ -5853,7 +5827,7 @@ boolean readUSB()
     {
         #ifdef SHADOW_DEBUG      
             output += "No foot controller was found\r\n";
-            output += "Shuting down motors, and watching for a new PS3 foot message\r\n";
+            output += "Shutting down motors, and watching for a new PS3 foot message\r\n";
         #endif
         ST->stop();
         isFootMotorStopped = true;
@@ -5861,7 +5835,7 @@ boolean readUSB()
         WaitingforReconnect = true;
     }
     
-    if (PS3NavDome->PS3Connected) 
+    if (PS3NavCtrl->PS3Connected) 
     {
 
         if (criticalFaultDetectDome())
